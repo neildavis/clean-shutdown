@@ -25,6 +25,8 @@ trigger_pin=4
 led_pin=off
 poweroff_pin=off
 hold_time=1
+throttled_limit=5
+under_voltage_limit=5
 shutdown_delay=0
 polling_rate=1
 
@@ -57,6 +59,7 @@ trigger_pin_low() {
     raspi-gpio get $trigger_pin | grep -q "level=0 fsel=0 func=INPUT"
 }
 
+shutdown_msg=""
 shutdown_trigger() {
     if trigger_pin_low; then
         echo "BCM $trigger_pin asserted low"
@@ -72,22 +75,86 @@ shutdown_trigger() {
         echo "Held low for $low_time"
 
         if [ "$low_time" -ge "$hold_time" ]; then
-            echo "BCM $trigger_pin held low"
+            shutdown_msg="BCM $trigger_pin held low"
+            echo $shutdown_msg
             return 0
         fi
     fi
     return 1
 }
 
+under_voltage_start=0
+throttled_start=0
+shutdown_throttle() {
+    local t=$(get_throttled)
+    while [ $t -ne 0 ]; do
+        local under_voltage=$(($t & 0x1))
+        local throttled=$(($t & 0x4))
+
+        if [ $under_voltage -ne 0 ]; then
+            if [ $under_voltage_start eq 0 ]; then
+                # start tracking under-voltage
+                under_voltage_start=$SECONDS
+            else
+                # keep tracking under-voltage
+                under_voltage_time = $(( $SECONDS - $under_voltage_start ))
+                if [ "$under_voltage_time" -ge "$under_voltage_limit" ]; then
+                    shutdown_msg="Under voltage for $under_voltage_time seconds"
+                    echo $shutdown_msg
+                    return 0
+                fi
+            fi
+        else
+            # stop tracking under-voltage
+            under_voltage_start=0
+        fi
+
+        if [ $throttled -ne 0 ]; then
+            if [ $throttled_start eq 0 ]; then
+                # start tracking throtlling
+                throttled_start=$SECONDS
+            else
+                # keep tracking throttling
+                throttled_time = $(( $SECONDS - $throttled_start ))
+                if [ "$throttled_time" -ge "$throttled_limit" ]; then
+                    shutdown_msg="Throttled for $throttled_time seconds"
+                    echo $shutdown_msg
+                    return 0
+                fi
+            fi
+        else
+            # stop tracking throttling
+            throttled_start=0
+        fi
+
+        sleep 0.25
+        t=$(get_throttled)
+    done
+    return 1
+}
+
+get_throttled() {
+    # https://www.raspberrypi.org/documentation/raspbian/applications/vcgencmd.md
+    echo $(( $(vcgencmd get_throttled | sed 's/throttled=//') & 5 ))
+}
+
 daemon="on"
+do_shutdown() {
+    msg="$shutdown_msg, system shutdown in $shutdown_delay minutes"
+    echo $msg
+    wall $msg
+    shutdown -h +$shutdown_delay
+    daemon="off"
+ }
+
 while true; do
     while [ "$daemon" = "on" ]; do
         if shutdown_trigger; then
-            msg="BCM $trigger_pin held low, system shutdown in $shutdown_delay minutes"
-            echo $msg
-            wall $msg
-            daemon="off"
-            shutdown -h +$shutdown_delay
+            do_shutdown
+            break
+        fi
+        if shutdown_throttle; then
+            do_shutdown
             break
         fi
         sleep $polling_rate
