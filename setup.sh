@@ -251,6 +251,7 @@ if [ "$PRODUCT" == "onoffshim" ]; then
     config_set hold_time 1
     config_set shutdown_delay 0
     config_set polling_rate 1
+    config_set button_type momentary
 elif [ "$PRODUCT" == "zerolipo" ]; then
     echo -e "\nApplying default settings for Zero LiPo..."
     config_set trigger_pin 4

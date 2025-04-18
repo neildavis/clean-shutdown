@@ -12,7 +12,7 @@ The `setup.sh` script provided in this repository can be used to set your prefer
 We highly recommend you use the generic one-line installer rather than run the `setup.sh` script directly, like so:
 
 ```
-curl https://raw.githubusercontent.com/rodubero/clean-shutdown/master/onoffshim| bash
+curl https://raw.githubusercontent.com/neildavis/clean-shutdown/refs/heads/bookworm/onoffshim | bash
 ```
 
 If you need to however, for example because the above command states that your operating system is not supported, clone this repository locally and run `setup.sh`. When prompted, enter the pin you would you like to use as trigger for the shutdown.
@@ -25,7 +25,7 @@ Note that the setup script expects an integer value between 4 and 27 (you can us
 If you are using a [OnOff SHIM](https://shop.pimoroni.com/products/onoff-shim), you should use our dedicated one-line installer, which will ensure the daemon configuration is optimal for that product:
 
 ```
-curl https://raw.githubusercontent.com/rodubero/clean-shutdown/master/onoffshim | bash
+curl https://raw.githubusercontent.com/neildavis/clean-shutdown/refs/heads/bookworm/onoffshim | bash
 ```
 
 ## Usage
